@@ -1,6 +1,6 @@
 # Verificación de entrega
 
-Ejecutada el 30 de septiembre de 2026 sobre `main` (`ae50614`) en un contenedor
+Ejecutada el 30 de septiembre de 2026 sobre `main` (`77adeeb`) en un contenedor
 Linux: Python 3.12.3, PostgreSQL 16.13 con pgvector 0.6.0, Node.js 22.22 y
 Chromium. Las bases se recrearon vacías antes de las pruebas.
 
@@ -8,19 +8,20 @@ Chromium. Las bases se recrearon vacías antes de las pruebas.
 
 | Verificación | Resultado |
 | --- | --- |
-| GitHub Actions en `main` ([run #6](https://github.com/DanielToledo-99/pruebaContinetal/actions/runs/36750190925)) | **Correcto**: backend y frontend |
+| GitHub Actions en `main` ([run #8](https://github.com/DanielToledo-99/pruebaContinetal/actions/runs/36757815626)) | **Correcto**: backend y frontend |
 | `alembic upgrade head` sobre base vacía | Migración `0001`: 4 tablas y extensión `vector` |
 | `alembic check` | Sin diferencias con los modelos |
-| pytest sin base de datos (fakes) | 67 passed, 4 skipped |
-| pytest con `TEST_DATABASE_URL` (PostgreSQL real) | **71 passed** |
+| pytest sin base de datos (fakes) | 74 passed, 4 skipped |
+| pytest con `TEST_DATABASE_URL` (PostgreSQL real) | **78 passed** |
 | Ruff, Black, isort | Sin errores (Black: 43 archivos) |
 | mypy sobre `app/` | Sin errores (32 archivos) |
 | `npm ci` + `npm run build` | TypeScript y Vite correctos |
 | ESLint (`--max-warnings 0`) y Prettier | Sin errores ni avisos |
-| Playwright con API simulada | **6 passed**, escritorio y móvil |
+| Playwright con API simulada | **8 passed**, escritorio y móvil |
 | `docker compose config --quiet` | Correcto (requiere `.env`) |
 | Flujo completo con navegador real, sin API simulada | **Correcto** (detalle abajo) |
 | Conversación reportada con citas repetidas | **Corregida** (detalle abajo) |
+| Documentos de Word (.docx) | **Correcto** (detalle abajo) |
 
 La suite emite un aviso de deprecación de Starlette sobre TestClient/httpx, sin
 errores de ejecución.
@@ -53,6 +54,23 @@ Con la configuración por defecto (`LLM_PROVIDER=openai`) y sin clave, el backen
 avisa al arrancar y la carga devuelve 502 «Configura OPENAI_API_KEY en el backend
 para procesar.»; preguntar sin documentos devuelve 409 `NO_PROCESSED_DOCUMENT`.
 
+## Documentos de Word
+
+Misma pila, con `samples/proyecto_agua.docx` (datos en una tabla, acciones en lista):
+
+| Paso | Resultado |
+| --- | --- |
+| Elegir un `.doc` antiguo | El navegador lo rechaza: «Selecciona un archivo PDF, TXT o Word (.docx).» |
+| Subir un Word protegido con contraseña (formato OLE) | «No se admiten documentos de Word protegidos con contraseña ni en formato .doc.» |
+| Subir `proyecto_agua.docx` | Procesado, 1 fragmento con títulos, filas de tabla y lista en líneas separadas |
+| «¿Cuál es el presupuesto aprobado?» | Cita la fila «Presupuesto aprobado \| 15 000 soles», resaltada en el fragmento |
+| «¿Quién es la responsable del proyecto?» | Cita la fila «Responsable \| Ana Torres» |
+| «dame un resumen» | 12 citas: párrafos, filas de tabla y elementos de lista |
+
+El documento real del desafío (`Desafio_Tecnico_Musache_Fullstack_CIE_LAB.docx`,
+30 KB) se extrajo completo: 53 líneas en orden, con su tabla de fecha límite como
+«Fecha límite de entrega | Viernes 2 de octubre de 2026, por la mañana».
+
 ## Citas: conversación reportada
 
 Con un modelo real, las respuestas mostraban siempre «1 fuente del documento» con la
@@ -77,6 +95,10 @@ fragmento; lo que cambia entre respuestas son las frases citadas.
 
 ## Alcance de las pruebas automáticas
 
+- Word: orden de lectura con títulos, tablas con celdas combinadas, controles de
+  contenido, cambios insertados (y borrados excluidos), hipervínculos, cuadros de
+  texto sin duplicar y tabulaciones de formato ignoradas; límite de tamaño
+  descomprimido, límite de texto, ZIP que no es Word, `.doc` y Word protegido.
 - Documentos: PDF/TXT, UTF-8, archivos vacíos, MIME/extensión, tamaño, PDF sin
   texto, PDF con solo contraseña de propietario frente a PDF que exige contraseña,
   límite de texto, saltos de línea conservados y fragmentos cortados en párrafo u
@@ -98,8 +120,8 @@ fragmento; lo que cambia entre respuestas son las frases citadas.
   y umbral de búsqueda vectorial, y carga/pregunta/historial por HTTP al recrear
   la aplicación.
 - Navegador con API simulada: archivo → pregunta → citas agrupadas y resaltadas en
-  el fragmento → recarga → pregunta sin respuesta; recuperación tras fallo de red y
-  reintento de una carga fallida.
+  el fragmento → recarga → pregunta sin respuesta; recuperación tras fallo de red,
+  reintento de una carga fallida, y `.docx` aceptado frente a `.doc` rechazado.
 
 ## Verificación anterior con Docker
 
@@ -123,6 +145,9 @@ actuales**; conviene repetir `docker compose up --build` antes de la entrega.
   copiada, ahora que se pide una cita por dato.
 - Los documentos subidos antes de `ae50614` conservan fragmentos con las líneas
   unidas; hay que volver a subirlos para ver el fragmento con saltos de línea.
+- El soporte de Word se probó con archivos generados por `python-docx` y con el
+  documento del desafío; conviene probar además documentos propios con formato
+  complejo. No se leen encabezados, pies de página, notas al pie ni comentarios.
 
 ## Cómo repetir
 
