@@ -175,3 +175,33 @@ test("failed upload shows an error and preserves the selected file", async ({
     page.getByRole("button", { name: "Enviar pregunta" }),
   ).toBeDisabled();
 });
+
+test("accepts Word files and explains that legacy .doc is not", async ({
+  page,
+}) => {
+  await page.route("**/api/sessions", (route) =>
+    route.fulfill({ json: { session_id: sessionId } }),
+  );
+  await page.goto("/");
+  await expect(page.getByText("Sesión guardada")).toBeVisible();
+  const input = page.getByLabel("Seleccionar documento");
+  await input.setInputFiles({
+    name: "antiguo.doc",
+    mimeType: "application/msword",
+    buffer: Buffer.from("contenido"),
+  });
+  await expect(page.getByRole("alert")).toContainText("Word (.docx)");
+  await expect(
+    page.getByRole("button", { name: "Subir documento" }),
+  ).toBeDisabled();
+  await input.setInputFiles({
+    name: "informe.docx",
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    buffer: Buffer.from("PK"),
+  });
+  await expect(page.getByText("informe.docx")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Subir documento" }),
+  ).toBeEnabled();
+});

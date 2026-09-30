@@ -33,7 +33,9 @@ class InvalidDocument(ApplicationError):
 
 class UnsupportedDocumentType(ApplicationError):
     code = "UNSUPPORTED_DOCUMENT_TYPE"
-    message = "Solo se admiten archivos PDF y TXT con tipo de contenido compatible."
+    message = (
+        "Solo se admiten archivos PDF, TXT y DOCX con tipo de contenido compatible."
+    )
 
 
 class DocumentTooLarge(ApplicationError):

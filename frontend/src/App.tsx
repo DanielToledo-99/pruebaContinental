@@ -125,8 +125,8 @@ export default function App() {
     if (!selected || busy) return;
     setError("");
     setNotice("");
-    if (!/\.(pdf|txt)$/i.test(selected.name)) {
-      setError("Selecciona un archivo PDF o TXT.");
+    if (!/\.(pdf|txt|docx)$/i.test(selected.name)) {
+      setError("Selecciona un archivo PDF, TXT o Word (.docx).");
       return;
     }
     if (selected.size === 0) {
@@ -341,7 +341,7 @@ export default function App() {
               <input
                 ref={fileInput}
                 type="file"
-                accept=".pdf,.txt,application/pdf,text/plain"
+                accept=".pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 disabled={!!busy || !sessionId}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
                   chooseFile(event.target.files?.[0])
@@ -355,7 +355,7 @@ export default function App() {
               <span>
                 Arrastra aquí o <u>selecciona un archivo</u>
               </span>
-              <small>PDF o TXT · Máximo 10 MB</small>
+              <small>PDF, TXT o Word (.docx) · Máximo 10 MB</small>
             </label>
             <button
               className="upload-button"
@@ -666,7 +666,7 @@ export default function App() {
         <footer className="page-footer">
           <span>LECTURA CON CONTEXTO. RESPUESTAS CON FUENTES.</span>
           <span>
-            PDF & TXT <ArrowDown size={12} />
+            PDF, TXT & DOCX <ArrowDown size={12} />
           </span>
         </footer>
       </main>

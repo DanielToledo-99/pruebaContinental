@@ -159,7 +159,16 @@ preguntando. El usuario puede copiar/introducir el identificador. Un fallo trans
 de red no borra su sesión. Las preguntas fallidas permanecen en el editor.
 
 No se agrega router: una pantalla cubre el flujo. Sin login, roles, Redis, OAuth,
-administración, streaming ni DOCX. PDF y TXT cubren los requisitos obligatorios.
+administración ni streaming. El desafío no fija formatos: se admiten PDF, TXT y
+Word (.docx), los más habituales para documentos de trabajo.
+
+Para Word, `python-docx` abre el paquete (su parser XML no resuelve entidades
+externas), pero el texto se recorre sobre el XML: la API `paragraphs` omite tablas,
+controles de contenido y cambios insertados, y duplica celdas combinadas. Las tablas
+se convierten en filas `celda | celda` para conservar la relación entre dato y valor.
+Antes de abrirlo se comprueba el tamaño descomprimido declarado (10 veces el límite
+de subida) para evitar bombas ZIP. Los `.doc` antiguos y los Word protegidos (formato
+OLE) se rechazan con un mensaje explícito.
 No hay autorización real: un UUID conocido permite acceder al historial. Esta versión
 se sirve solo en localhost y no debe publicarse como producto multiusuario sin cambios.
 

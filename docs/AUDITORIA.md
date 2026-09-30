@@ -31,7 +31,7 @@ Contraste con `Desafio_Tecnico_Musache_Fullstack_CIE_LAB.docx`.
 | Requisito | Estado | Evidencia |
 | --- | --- | --- |
 | `POST /ask` con pregunta e identificador de sesión | Cumple | `document_id` ahora es opcional: sin él se usa el último documento procesado de la sesión. Antes era obligatorio y una llamada con solo sesión y pregunta devolvía 422. |
-| Cargar un documento como fuente | Cumple | `POST /documents` (PDF y TXT). |
+| Cargar un documento como fuente | Cumple | `POST /documents`: PDF, TXT y Word (.docx). El desafío no fija formatos. |
 | `GET /history/{session_id}` | Cumple | Mensajes ordenados por secuencia, con fuentes y documentos. |
 | Validación y errores HTTP consistentes | Cumple | Formato `{"error": {"code", "message"}}`, códigos 400/404/409/413/415/422/500/502. |
 | Responder con el contenido del documento | Cumple | RAG con pgvector filtrado por documento. |
@@ -220,7 +220,8 @@ PostgreSQL de ejemplo son `postgres/postgres`.
 - `backend/app/api/middleware.py`, `exception_handlers.py`: errores 500 sin detalles
   y con CORS.
 - `backend/app/infrastructure/document_processing/parsers.py`, `pyproject.toml`,
-  `requirements.lock`: PDF con contraseña de propietario (`pypdf[crypto]`).
+  `requirements.lock`: PDF con contraseña de propietario (`pypdf[crypto]`) y
+  documentos de Word (`python-docx`), con `samples/proyecto_agua.docx`.
 - `backend/app/application/use_cases.py`: cargas canceladas quedan en `failed`.
 - `backend/app/application/grounding.py`: todas las citas, con el texto exacto del
   documento; `chunking.py` y `parsers.py`: fragmentos que respetan líneas y oraciones;

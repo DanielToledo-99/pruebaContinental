@@ -7,10 +7,11 @@ from app.application.grounding import NOT_FOUND
 from app.core.config import Settings
 from app.domain.entities import GroundedAnswer
 from app.domain.exceptions import AIProviderError
+from app.infrastructure.document_processing.parsers import DOCX_MIME
 from app.infrastructure.llm.ollama_provider import OllamaLLMProvider
 from app.infrastructure.llm.openai_provider import OpenAILLMProvider
 from app.main import create_app
-from tests.unit.test_documents import make_pdf
+from tests.unit.test_documents import make_docx, make_pdf
 
 
 @pytest.fixture
@@ -25,6 +26,7 @@ def client(setup_services):
     [
         ("doc.txt", "text/plain", b"El proyecto reduce el consumo de agua."),
         ("doc.pdf", "application/pdf", make_pdf()),
+        ("doc.docx", DOCX_MIME, make_docx()),
     ],
 )
 def test_complete_flow_and_recover_history(client, filename, mime, content):

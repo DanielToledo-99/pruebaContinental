@@ -2,7 +2,7 @@
 
 ## Presentación en un minuto
 
-«Construí un asistente para preguntar sobre PDF y TXT. FastAPI expone una API y
+«Construí un asistente para preguntar sobre PDF, TXT y Word. FastAPI expone una API y
 React una interfaz que conserva sesiones. La aplicación extrae texto, crea fragmentos,
 genera embeddings y los almacena en PostgreSQL con pgvector. Cada pregunta busca
 fragmentos del documento seleccionado y el LLM recibe exclusivamente ese contexto.
@@ -14,7 +14,8 @@ concurrencia y aislamiento.»
 ## Demo de cinco minutos
 
 1. Abre UI y Swagger. Explica los tres servicios de Compose.
-2. Sube `samples/proyecto_agua.txt`. Pregunta objetivo y presupuesto.
+2. Sube `samples/proyecto_agua.txt`. Pregunta objetivo y presupuesto. Repite con
+   `samples/proyecto_agua.docx`, donde el presupuesto está en una tabla.
 3. Expande una fuente y compárala con el archivo.
 4. Pregunta un dato ajeno: ganador del Mundial 2018. Muestra la abstención.
 5. Recarga: mensajes y fuentes reaparecen. Copia la sesión, crea otra y recupera la anterior.

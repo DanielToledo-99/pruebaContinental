@@ -1,13 +1,13 @@
 # Document AI Assistant
 
-Asistente para conversar con documentos PDF y TXT, con respuestas fundamentadas en
+Asistente para conversar con documentos PDF, TXT y Word (.docx), con respuestas fundamentadas en
 fragmentos del archivo, citas verificables e historial persistido por sesión.
 Desafío Full Stack implementado como un monolito modular.
 
 ## Descripción
 
 1. Crea o recupera una sesión.
-2. Sube un PDF con texto seleccionable o un TXT UTF-8.
+2. Sube un PDF con texto seleccionable, un TXT UTF-8 o un documento de Word (.docx).
 3. El backend extrae texto, lo divide en fragmentos y guarda sus embeddings.
 4. Haz una pregunta: el sistema recupera contexto **solo del documento elegido**.
 5. Recibe una respuesta con fuentes, o la frase:
@@ -27,7 +27,7 @@ flowchart LR
     API --> UC[Application: casos de uso]
     UC --> D[Domain: entidades y errores]
     UC --> P[Puertos: Repository / UnitOfWork / LLM / Embeddings / VectorStore]
-    I[Infraestructura: SQLAlchemy / pgvector / OpenAI / pypdf] -. implementa .-> P
+    I[Infraestructura: SQLAlchemy / pgvector / OpenAI / pypdf / python-docx] -. implementa .-> P
     I --> DB[(PostgreSQL + pgvector)]
     I --> OA[OpenAI u Ollama]
 ```
@@ -45,7 +45,7 @@ backend/
       database/             # modelos SQLAlchemy y Unit of Work
       repositories/         # sesiones, documentos e historial
       vector_store/         # búsqueda coseno con pgvector
-      document_processing/  # parsers PDF y TXT
+      document_processing/  # parsers PDF, TXT y DOCX
       llm/                  # adaptadores OpenAI/Ollama y prompt
     api/                    # rutas, esquemas, DI, middleware y errores
     core/config.py          # Pydantic Settings
@@ -60,7 +60,7 @@ frontend/
   e2e/                      # Playwright: escritorio y móvil
   nginx.conf
   Dockerfile
-samples/proyecto_agua.txt
+samples/proyecto_agua.{txt,docx}  # el .docx trae los datos en tabla
 docker-compose.yml
 .env.example
 Makefile
@@ -349,7 +349,7 @@ sesión sin documentos procesados o espacio de embeddings distinto. 413: tamaño
 ## Flujo RAG
 
 ```text
-PDF/TXT → validación → extracción (conserva saltos de línea) → chunks de hasta 800
+PDF/TXT/DOCX → validación → extracción (conserva saltos de línea) → chunks de hasta 800
 caracteres cortados en párrafo, línea u oración
 → solapamiento de 100 → embeddings por lotes → PostgreSQL/pgvector
 
@@ -392,6 +392,8 @@ La interfaz invita a revisar las fuentes y el límite se explica en el ADR-010.
 
 1. Configura la clave, levanta Compose y abre el frontend.
 2. Sube `samples/proyecto_agua.txt`: debe aparecer «Documento procesado correctamente».
+   Repite con `samples/proyecto_agua.docx`: el presupuesto y la responsable están en
+   una tabla y deben responderse citando la fila correspondiente.
 3. Pregunta «¿Cuál es el objetivo principal?»; debe mencionar reducir agua en 20%.
 4. Expande las citas: cada una debe existir literalmente en el archivo y aparecer
    resaltada en «Ver el fragmento completo». Pide «dame un resumen»: debe haber una
@@ -416,8 +418,8 @@ y una hoja de ruta de escalado.
 
 ## Seguridad y observabilidad
 
-Se validan extensión, MIME compatible, firma PDF, UTF-8, archivo vacío, bytes,
-páginas y longitud extraída. Se limpia el nombre y nunca se ejecuta el contenido.
+Se validan extensión, MIME compatible, firma PDF o ZIP (DOCX), UTF-8, archivo vacío,
+bytes, páginas, tamaño descomprimido del DOCX y longitud extraída. Se limpia el nombre y nunca se ejecuta el contenido.
 No se conserva el archivo original; se guardan metadata, texto y vectores.
 La extracción bloqueante se lleva a un hilo. El cuerpo HTTP completo tiene límite
 antes del parser multipart, incluso si llega por partes sin Content-Length.
@@ -435,8 +437,12 @@ limitan a localhost y la aplicación no se presenta como servicio multiusuario s
 ## Limitaciones
 
 - Requiere una clave con saldo/permisos para probar OpenAI realmente, o Ollama local.
-- PDF escaneado sin OCR, PDF que exige contraseña para abrirse y DOCX no están
-  soportados. Los PDF con solo contraseña de propietario (restricciones) sí.
+- PDF escaneado sin OCR, PDF que exige contraseña para abrirse, Word protegido con
+  contraseña, `.doc` antiguo y otros formatos (ODT, RTF, Markdown) no están soportados.
+  Los PDF con solo contraseña de propietario (restricciones) sí.
+- De Word se leen párrafos, títulos, listas, tablas (una fila por línea, celdas
+  separadas por `|`), controles de contenido, cambios insertados y cuadros de texto.
+  No se leen encabezados, pies de página, notas al pie, comentarios ni imágenes.
 - Procesamiento síncrono, máximo 10 MB, 200 páginas y 200 000 caracteres por defecto.
 - Si el proceso muere durante una carga, puede quedar metadata `processing`; vuelve
   a subir el archivo. No hay worker de recuperación ni reintentos de cargas.

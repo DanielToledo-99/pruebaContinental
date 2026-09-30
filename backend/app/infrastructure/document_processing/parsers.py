@@ -1,8 +1,12 @@
 import asyncio
 import re
+import zipfile
+from collections.abc import Iterator
 from io import BytesIO
 from pathlib import PurePosixPath
+from typing import Any
 
+import docx
 from pypdf import PdfReader
 
 from app.application.ports import DocumentParser
@@ -11,6 +15,19 @@ from app.domain.exceptions import (
     InvalidDocument,
     UnsupportedDocumentType,
 )
+
+DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+_MIME_TYPES = {".pdf": "application/pdf", ".txt": "text/plain", ".docx": DOCX_MIME}
+_W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+# Deleted or moved-away text, formatting, and the legacy copy of drawings
+# (mc:Fallback duplicates text boxes) are not part of the reading text.
+_SKIPPED = {
+    f"{_W}del",
+    f"{_W}moveFrom",
+    f"{_W}pPr",
+    f"{_W}rPr",
+    "{http://schemas.openxmlformats.org/markup-compatibility/2006}Fallback",
+}
 
 
 class TextParser:
@@ -56,6 +73,81 @@ class PDFParser:
             raise InvalidDocument("No se pudo leer el PDF.") from exc
 
 
+def _inline_text(element: Any) -> Iterator[str]:
+    for child in element:
+        if child.tag in _SKIPPED or child.tag == f"{_W}txbxContent":
+            continue
+        if child.tag == f"{_W}t":
+            yield child.text or ""
+        elif child.tag == f"{_W}tab":
+            yield "\t"
+        elif child.tag in {f"{_W}br", f"{_W}cr"}:
+            yield "\n"
+        else:
+            yield from _inline_text(child)
+
+
+def _text_boxes(element: Any) -> Iterator[Any]:
+    for child in element:
+        if child.tag in _SKIPPED:
+            continue
+        if child.tag == f"{_W}txbxContent":
+            yield child
+        else:
+            yield from _text_boxes(child)
+
+
+def _docx_lines(element: Any) -> Iterator[str]:
+    """Paragraphs and table rows in reading order.
+
+    Unlike python-docx's `paragraphs`, this includes tables, content controls,
+    tracked insertions and text boxes; horizontally merged cells appear once.
+    """
+    for child in element:
+        if child.tag in _SKIPPED:
+            continue
+        if child.tag == f"{_W}p":
+            yield "".join(_inline_text(child))
+            for box in _text_boxes(child):
+                yield from _docx_lines(box)
+        elif child.tag == f"{_W}tbl":
+            for row in child.iterchildren(f"{_W}tr"):
+                cells = (
+                    " ".join(_docx_lines(cell)).strip()
+                    for cell in row.iterchildren(f"{_W}tc")
+                )
+                yield " | ".join(cell for cell in cells if cell)
+        else:
+            yield from _docx_lines(child)
+
+
+class DocxParser:
+    def __init__(self, max_unzipped: int = 100 * 1024 * 1024) -> None:
+        self.max_unzipped = max_unzipped
+
+    def parse(self, content: bytes, max_chars: int) -> str:
+        try:
+            # A small archive can expand to gigabytes: check declared sizes first;
+            # zipfile never reads past them.
+            with zipfile.ZipFile(BytesIO(content)) as archive:
+                unzipped = sum(item.file_size for item in archive.infolist())
+            if unzipped > self.max_unzipped:
+                raise DocumentTooLarge()
+            body = docx.Document(BytesIO(content)).element.body
+            lines: list[str] = []
+            length = 0
+            for line in _docx_lines(body):
+                length += len(line) + 1
+                if length > max_chars:
+                    raise DocumentTooLarge()
+                lines.append(line)
+            return "\n".join(lines)
+        except (InvalidDocument, DocumentTooLarge):
+            raise
+        except Exception as exc:
+            raise InvalidDocument("No se pudo leer el documento de Word.") from exc
+
+
 class FileDocumentProcessor:
     def __init__(
         self,
@@ -68,15 +160,15 @@ class FileDocumentProcessor:
         self.parsers: dict[str, DocumentParser] = {
             ".txt": TextParser(),
             ".pdf": PDFParser(max_pages),
+            ".docx": DocxParser(10 * max_bytes),
         }
 
     def validate(self, filename: str, content_type: str, content: bytes) -> str:
         name = PurePosixPath(filename.replace("\\", "/")).name
         extension = PurePosixPath(name).suffix.lower()
         mime = content_type.split(";", 1)[0].lower().strip()
-        expected = {".pdf": "application/pdf", ".txt": "text/plain"}
-        if extension not in expected or mime not in {
-            expected.get(extension),
+        if extension not in _MIME_TYPES or mime not in {
+            _MIME_TYPES.get(extension),
             "application/octet-stream",
             "",
         }:
@@ -87,6 +179,14 @@ class FileDocumentProcessor:
             raise DocumentTooLarge()
         if extension == ".pdf" and not content.startswith(b"%PDF-"):
             raise InvalidDocument("El contenido del archivo no corresponde a un PDF.")
+        if extension == ".docx" and not content.startswith(b"PK\x03\x04"):
+            # Password-protected Word files and legacy .doc use the OLE format.
+            raise InvalidDocument(
+                "No se admiten documentos de Word protegidos con contraseña "
+                "ni en formato .doc."
+                if content.startswith(b"\xd0\xcf\x11\xe0")
+                else "El contenido del archivo no corresponde a un documento de Word."
+            )
         stem = re.sub(r"[^\w. -]", "_", PurePosixPath(name).stem).strip(" .")
         return (stem or "documento")[:170] + extension
 
@@ -98,6 +198,6 @@ class FileDocumentProcessor:
         text = re.sub(r"\n{3,}", "\n\n", re.sub(r" ?\n ?", "\n", text)).strip()
         if not text:
             raise InvalidDocument(
-                "No se encontró texto. Los PDF escaneados requieren OCR."
+                "No se encontró texto. Los PDF escaneados y las imágenes requieren OCR."
             )
         return text
