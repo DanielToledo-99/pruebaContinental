@@ -11,6 +11,7 @@ from app.api.schemas import (
     DocumentResponse,
     ErrorResponse,
     HistoryResponse,
+    MessageResponse,
     SessionResponse,
 )
 from app.domain.entities import Document
@@ -78,7 +79,7 @@ async def history(session_id: UUID, services: ServicesDep) -> HistoryResponse:
     result = await services.history.execute(session_id)
     return HistoryResponse(
         session_id=result.session_id,
-        messages=result.messages,
+        messages=[MessageResponse.model_validate(m) for m in result.messages],
         documents=[document_response(document) for document in result.documents],
     )
 

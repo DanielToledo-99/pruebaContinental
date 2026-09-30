@@ -12,7 +12,7 @@ test:
 
 lint:
 	docker build --target test -t document-ai-backend-test ./backend
-	docker run --rm document-ai-backend-test sh -c 'ruff check . && black --check . && isort --check-only .'
+	docker run --rm document-ai-backend-test sh -c 'ruff check . && black --check . && isort --check-only . && mypy'
 
 format:
 	cd backend && isort . && black .

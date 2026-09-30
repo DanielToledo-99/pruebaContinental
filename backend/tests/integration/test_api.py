@@ -54,6 +54,23 @@ def test_complete_flow_and_recover_history(client, filename, mime, content):
     assert history["messages"][1]["sources"] == response.json()["sources"]
 
 
+def test_ask_with_only_session_and_question(client):
+    session = client.post("/sessions").json()["session_id"]
+    payload = {"session_id": session, "question": "¿Cuál es el objetivo?"}
+    response = client.post("/ask", json=payload)
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "NO_PROCESSED_DOCUMENT"
+    document = client.post(
+        "/documents",
+        data={"session_id": session},
+        files={"file": ("doc.txt", b"El objetivo es ahorrar agua.", "text/plain")},
+    ).json()["document_id"]
+    response = client.post("/ask", json=payload)
+    assert response.status_code == 200
+    assert response.json()["document_id"] == document
+    assert "agua" in response.json()["answer"]
+
+
 def test_unknown_question_and_provider_error(client, setup_services):
     _, _, llm = setup_services
     session = client.post("/sessions").json()["session_id"]

@@ -13,7 +13,14 @@ from app.application.ports import (
     LLMProvider,
     UnitOfWork,
 )
-from app.domain.entities import AnswerResult, Chunk, Document, History, Session
+from app.domain.entities import (
+    AnswerResult,
+    Chunk,
+    Document,
+    History,
+    Session,
+    Source,
+)
 from app.domain.exceptions import (
     AIProviderError,
     DocumentNotFound,
@@ -21,6 +28,7 @@ from app.domain.exceptions import (
     EmbeddingConfigurationChanged,
     EmptyQuestion,
     InvalidDocument,
+    NoProcessedDocument,
     SessionNotFound,
 )
 
@@ -137,7 +145,7 @@ class AskQuestion:
         self.min_score = min_score
 
     async def execute(
-        self, session_id: UUID, document_id: UUID, question: str
+        self, session_id: UUID, document_id: UUID | None, question: str
     ) -> AnswerResult:
         question = question.strip()
         if not 1 <= len(question) <= 2000:
@@ -145,6 +153,16 @@ class AskQuestion:
         async with self.uow() as work:
             if not await work.repository.session_exists(session_id):
                 raise SessionNotFound()
+            if document_id is None:
+                # Without an explicit document, answer from the latest processed one.
+                processed = [
+                    document
+                    for document in await work.repository.list_documents(session_id)
+                    if document.status == "processed"
+                ]
+                if not processed:
+                    raise NoProcessedDocument()
+                document_id = processed[-1].id
             document = await work.repository.get_document(document_id)
             if not document or document.session_id != session_id:
                 raise DocumentNotFound()
@@ -159,7 +177,8 @@ class AskQuestion:
             context = await work.vectors.search(
                 document_id, vectors[0], self.top_k, self.min_score
             )
-        answer, sources = NOT_FOUND, []
+        answer = NOT_FOUND
+        sources: list[Source] = []
         if context:
             generated = await self.llm.answer(question, context)
             answer, sources = validate_answer(generated, context)
@@ -171,4 +190,4 @@ class AskQuestion:
         logger.info(
             "question_answered session_id=%s document_id=%s", session_id, document_id
         )
-        return AnswerResult(session_id, answer, sources, messages)
+        return AnswerResult(session_id, document_id, answer, sources, messages)

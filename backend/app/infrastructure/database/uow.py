@@ -2,11 +2,15 @@ from typing import Self
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.application.ports import Repository, VectorStore
 from app.infrastructure.repositories.sqlalchemy_repository import SQLAlchemyRepository
 from app.infrastructure.vector_store.pgvector_store import PgVectorStore
 
 
 class SQLAlchemyUnitOfWork:
+    repository: Repository
+    vectors: VectorStore
+
     def __init__(self, factory: async_sessionmaker[AsyncSession]) -> None:
         self.factory = factory
 

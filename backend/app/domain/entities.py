@@ -77,6 +77,7 @@ class History:
 @dataclass(frozen=True)
 class AnswerResult:
     session_id: UUID
+    document_id: UUID
     answer: str
     sources: list[Source]
     messages: list[Message]

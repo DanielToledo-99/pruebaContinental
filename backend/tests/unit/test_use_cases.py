@@ -13,6 +13,7 @@ from app.domain.exceptions import (
     EmbeddingConfigurationChanged,
     EmptyQuestion,
     InvalidDocument,
+    NoProcessedDocument,
     SessionNotFound,
 )
 
@@ -28,6 +29,23 @@ async def test_ask_question_success(loaded):
     assert len(llm.calls[0][1]) == 1
     assert [m.role for m in db.messages] == ["user", "assistant"]
     assert db.messages[1].sources == result.sources
+
+
+async def test_question_without_document_uses_latest_processed(loaded):
+    services, db, _, session, _ = loaded
+    latest = await services.upload.execute(
+        session.id, "otro.txt", "text/plain", b"El presupuesto es de 15 000 soles."
+    )
+    result = await services.ask.execute(session.id, None, "¿Presupuesto?")
+    assert result.document_id == latest.id
+    assert db.messages[0].document_id == latest.id
+
+
+async def test_question_without_processed_document(setup_services):
+    services, _, _ = setup_services
+    session = await services.create_session.execute()
+    with pytest.raises(NoProcessedDocument):
+        await services.ask.execute(session.id, None, "Pregunta")
 
 
 async def test_question_not_found_in_document(loaded):

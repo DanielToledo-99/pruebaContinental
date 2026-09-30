@@ -24,7 +24,8 @@ class DocumentResponse(ResponseModel):
 class AskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     session_id: UUID
-    document_id: UUID
+    # Optional: without it, the latest processed document of the session is used.
+    document_id: UUID | None = None
     question: str = Field(min_length=1, max_length=2000)
 
     @field_validator("question", mode="before")
@@ -58,6 +59,7 @@ class HistoryResponse(ResponseModel):
 
 class AskResponse(ResponseModel):
     session_id: UUID
+    document_id: UUID
     answer: str
     sources: list[SourceResponse]
     messages: list[MessageResponse]

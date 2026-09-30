@@ -16,6 +16,11 @@ class DocumentNotFound(ApplicationError):
     message = "El documento no existe en esta sesión."
 
 
+class NoProcessedDocument(ApplicationError):
+    code = "NO_PROCESSED_DOCUMENT"
+    message = "Sube un documento a esta sesión antes de preguntar."
+
+
 class DocumentNotProcessed(ApplicationError):
     code = "DOCUMENT_NOT_PROCESSED"
     message = "El documento todavía no está procesado."

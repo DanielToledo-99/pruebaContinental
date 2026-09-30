@@ -89,7 +89,7 @@ se confirman en una transacción. No se mantiene un bloqueo durante llamadas de 
 - PostgreSQL 16 + pgvector; migraciones Alembic.
 - OpenAI Responses API con salida estructurada y embeddings separados.
 - React, TypeScript, Vite, fetch, Lucide y CSS responsive.
-- pytest, Ruff, Black, isort, ESLint y Playwright.
+- pytest, Ruff, Black, isort, mypy, ESLint y Playwright.
 - Docker Compose; Nginx sirve el frontend y redirige `/api` al backend.
 
 ## Requisitos
@@ -275,6 +275,7 @@ cd backend
 ruff check .
 black --check .
 isort --check-only .
+mypy
 ```
 
 Frontend:
@@ -306,7 +307,7 @@ npx prettier --write src e2e '*.ts' '*.js'
 | --- | --- | --- |
 | POST | `/sessions` | Crea sesión; devuelve `session_id` (201) |
 | POST | `/documents` | Multipart: `session_id` + `file`; devuelve `document_id`, estado, nombre y número de chunks (201) |
-| POST | `/ask` | JSON: `session_id`, `document_id`, `question`; devuelve respuesta, fuentes y los dos mensajes guardados |
+| POST | `/ask` | JSON: `session_id`, `question` y `document_id` opcional (por defecto, el último documento procesado de la sesión); devuelve respuesta, documento usado, fuentes y los dos mensajes guardados |
 | GET | `/history/{session_id}` | Mensajes ordenados y documentos de la sesión |
 | GET | `/health` | Conexión a PostgreSQL |
 
@@ -327,6 +328,11 @@ curl -X POST http://localhost:8000/ask \
   -H 'Content-Type: application/json' \
   -d '{"session_id":"SESSION_UUID","document_id":"DOCUMENT_UUID","question":"¿Cuál es el objetivo principal?"}'
 
+# Sin document_id se usa el último documento procesado de la sesión
+curl -X POST http://localhost:8000/ask \
+  -H 'Content-Type: application/json' \
+  -d '{"session_id":"SESSION_UUID","question":"¿Cuál es el presupuesto?"}'
+
 curl http://localhost:8000/history/SESSION_UUID
 ```
 
@@ -336,8 +342,8 @@ Errores consistentes:
 {"error":{"code":"DOCUMENT_NOT_FOUND","message":"El documento no existe en esta sesión."}}
 ```
 
-400: documento inválido. 404: sesión/documento inexistente. 409: documento pendiente
-o espacio de embeddings distinto. 413: tamaño excesivo. 415: formato no soportado.
+400: documento inválido. 404: sesión/documento inexistente. 409: documento pendiente,
+sesión sin documentos procesados o espacio de embeddings distinto. 413: tamaño excesivo. 415: formato no soportado.
 422: campos/UUID inválidos. 502: proveedor de IA. 500: fallo interno sin detalles sensibles.
 
 ## Flujo RAG

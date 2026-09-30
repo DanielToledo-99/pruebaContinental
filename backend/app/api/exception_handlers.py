@@ -12,6 +12,7 @@ STATUS_CODES: dict[type[errors.ApplicationError], int] = {
     errors.SessionNotFound: 404,
     errors.DocumentNotFound: 404,
     errors.DocumentNotProcessed: 409,
+    errors.NoProcessedDocument: 409,
     errors.InvalidDocument: 400,
     errors.UnsupportedDocumentType: 415,
     errors.DocumentTooLarge: 413,

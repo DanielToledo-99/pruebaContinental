@@ -40,10 +40,11 @@ separadas y pueden cambiar de proveedor de forma independiente.
 
 **¿Cómo cambiarías OpenAI por Ollama?**
 
-Implementaría `LLMProvider.answer` para devolver `GroundedAnswer` con citas, y un
-`EmbeddingProvider` compatible con el modelo de embeddings local. Cambiaría la
-composición en `main.py`. Los casos de uso permanecerían igual; habría que volver a
-indexar documentos si cambia el espacio vectorial y evaluar la calidad del modelo.
+Ya está implementado: `OllamaLLMProvider` devuelve `GroundedAnswer` con citas y
+`OllamaEmbeddingProvider` implementa el puerto de embeddings. Solo cambia la
+composición en `main.py` según `LLM_PROVIDER`/`EMBEDDING_PROVIDER`; los casos de uso
+no se tocaron. Al cambiar el espacio vectorial hay que volver a indexar documentos
+y evaluar la calidad del modelo local.
 
 **¿Por qué pgvector en vez de FAISS o Chroma?**
 

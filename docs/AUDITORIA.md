@@ -24,13 +24,46 @@ Se encontraron tres problemas que impedían que funcionara o que se integrara:
 Los tres están corregidos en esta rama, junto con otros cinco bugs. Quedan mejoras
 de escalado, UX y calidad de RAG, priorizadas al final.
 
+## Cumplimiento del desafío
+
+Contraste con `Desafio_Tecnico_Musache_Fullstack_CIE_LAB.docx`.
+
+| Requisito | Estado | Evidencia |
+| --- | --- | --- |
+| `POST /ask` con pregunta e identificador de sesión | Cumple | `document_id` ahora es opcional: sin él se usa el último documento procesado de la sesión. Antes era obligatorio y una llamada con solo sesión y pregunta devolvía 422. |
+| Cargar un documento como fuente | Cumple | `POST /documents` (PDF y TXT). |
+| `GET /history/{session_id}` | Cumple | Mensajes ordenados por secuencia, con fuentes y documentos. |
+| Validación y errores HTTP consistentes | Cumple | Formato `{"error": {"code", "message"}}`, códigos 400/404/409/413/415/422/500/502. |
+| Responder con el contenido del documento | Cumple | RAG con pgvector filtrado por documento. |
+| Indicar cuando el documento no contiene la respuesta | Cumple | Frase fija de ausencia; citas verificadas en el fragmento. |
+| LLM externo o local, documentado | Cumple | OpenAI u Ollama (modo local corregido en esta rama), documentados en README y DECISION_LOG. |
+| Streaming o carga simple | Cumple | Carga simple (ADR-008). |
+| SPA: cargar documento y preguntar | Cumple | React + TypeScript. |
+| Estado de la solicitud: cargando, completada, error | Cumple | Indicadores de carga, avisos y alertas con reintento. |
+| Historial por sesión en la interfaz | Cumple | Se restaura al recargar o con el identificador de sesión. |
+| Capas Domain / Application / Infrastructure | Cumple | Más API como capa de transporte. |
+| Tipado fuerte y Pydantic | Cumple | Pydantic v2 en API y configuración; mypy sin errores y en CI desde esta rama. |
+| Lógica separada de infraestructura y proveedor de IA | Cumple | Puertos `Protocol`; los casos de uso no importan FastAPI, SQLAlchemy ni SDKs. |
+| Manejo de errores con excepciones | Cumple | Jerarquía `ApplicationError` y manejadores centralizados. |
+| Historial persistido en base de datos | Cumple | PostgreSQL con migraciones Alembic. |
+| Pruebas unitarias y de integración (pytest) | Cumple | 60 tests, incluida PostgreSQL real; Playwright en el frontend. |
+| Ruff/Flake8, Black e isort | Cumple | En CI; Black fallaba en `main` y está corregido. |
+| Sin secretos en el código | Cumple | Variables de entorno y `SecretStr`; revisado todo el historial de Git: solo aparece `test-key` en tests. |
+| Dockerfile y docker-compose.yml | Cumple | Backend, frontend (Nginx) y PostgreSQL con healthchecks. No se pudo ejecutar Compose en este entorno. |
+| Código en un repositorio GitHub | **Acción necesaria** | El repositorio es **privado**: hay que hacerlo público o invitar a los evaluadores. |
+| README.md completo | Cumple | Descripción, requisitos, entorno, Docker, pruebas, API y limitaciones. |
+| DECISION_LOG.md | Cumple | 12 ADR con alternativas y motivos. |
+| Documentar lo pendiente | Cumple | Limitaciones y mejoras en README y este informe. |
+| Opcional: despliegue gratuito | No hecho | Antes de exponerla haría falta autenticación y límite de peticiones (ver Seguridad). |
+
 ## Qué se verificó
 
 | Verificación | Original | Tras los cambios |
 | --- | --- | --- |
-| pytest con fakes | 40 passed, 4 skipped | 53 passed, 4 skipped |
-| pytest con PostgreSQL 16 + pgvector real | 44 passed | **57 passed** |
+| pytest con fakes | 40 passed, 4 skipped | 56 passed, 4 skipped |
+| pytest con PostgreSQL 16 + pgvector real | 44 passed | **60 passed** |
 | Ruff / isort / `alembic check` | Correcto | Correcto |
+| mypy sobre `app/` | 7 errores (no estaba configurado) | Correcto, añadido a CI |
 | Black | **1 archivo con errores** | Correcto |
 | `npm run build` / `npm run lint` | Correcto | Correcto |
 | Prettier | 1 archivo sin formato | Correcto |
@@ -186,4 +219,8 @@ PostgreSQL de ejemplo son `postgres/postgres`.
 - `backend/app/application/use_cases.py`: cargas canceladas quedan en `failed`.
 - `backend/app/application/grounding.py`: comparación normalizada de citas.
 - `docker-compose.yml`, `.env.example`, `README.md`: modo local con Ollama.
+- `backend/app/application/use_cases.py`, `schemas.py`: `document_id` opcional en
+  `POST /ask`; la respuesta indica el documento usado.
+- `pyproject.toml`, `requirements.lock`, `ci.yml`, `Makefile`: mypy con 7 errores
+  de tipos corregidos.
 - Tests nuevos en `tests/unit` y `tests/integration` para cada corrección.

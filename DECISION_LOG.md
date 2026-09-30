@@ -71,6 +71,12 @@ para embeddings. No se codifican precios en la app. Su disponibilidad depende de
 cuenta. Las respuestas estructuradas siguen el contrato de la Responses API;
 los tests del adaptador verifican la petición mediante un transporte simulado.
 
+Como alternativa local, `LLM_PROVIDER=ollama` usa Ollama para generar (con JSON
+schema) y, salvo que `EMBEDDING_PROVIDER` indique otra cosa, también para los
+embeddings (`bge-m3`, multilingüe), de modo que funciona sin clave de OpenAI. El
+espacio vectorial de Ollama se identifica como `ollama:<modelo>`: el modelo fija la
+dimensión. Cambiar de proveedor obliga a volver a cargar los documentos.
+
 ## ADR-006 Chunking y recuperación
 
 **Decisión:** 800 caracteres, solapamiento de 100, top K=4, similitud mínima=0.25.

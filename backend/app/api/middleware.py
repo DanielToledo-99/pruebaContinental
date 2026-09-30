@@ -77,7 +77,7 @@ class RequestSizeLimit:
                 break
         delivered = False
 
-        async def bounded_receive() -> dict:
+        async def bounded_receive() -> Message:
             nonlocal delivered
             if delivered:
                 return await receive()
