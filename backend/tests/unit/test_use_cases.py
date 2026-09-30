@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import replace
 from uuid import uuid4
 
@@ -56,6 +57,17 @@ async def test_fabricated_citations_are_rejected(loaded, citation):
     llm.result = GroundedAnswer("Una afirmación sin respaldo.", [citation], True)
     result = await services.ask.execute(session.id, document.id, "Pregunta")
     assert result.answer == NOT_FOUND
+
+
+async def test_citation_matching_tolerates_case_and_typography(loaded):
+    services, _, llm, session, document = loaded
+    quote = "«Reducir el consumo de agua en un 20%.»"
+    llm.result = GroundedAnswer(
+        "Reducir el consumo de agua.", [Citation(1, quote)], True
+    )
+    result = await services.ask.execute(session.id, document.id, "Pregunta")
+    assert result.answer == "Reducir el consumo de agua."
+    assert result.sources[0].quote == quote
 
 
 async def test_document_not_found(loaded):
@@ -141,4 +153,19 @@ async def test_embedding_failure_does_not_leave_partial_index(setup_services):
             session.id, "doc.txt", "text/plain", b"valid text"
         )
     assert not db.chunks
+    assert [doc.status for doc in db.documents.values()] == ["failed"]
+
+
+async def test_cancelled_upload_marks_metadata_failed(setup_services):
+    services, db, _ = setup_services
+    session = await services.create_session.execute()
+
+    async def cancelled_extract(filename, content):
+        raise asyncio.CancelledError()
+
+    services.upload.processor.extract = cancelled_extract
+    with pytest.raises(asyncio.CancelledError):
+        await services.upload.execute(
+            session.id, "doc.txt", "text/plain", b"valid text"
+        )
     assert [doc.status for doc in db.documents.values()] == ["failed"]

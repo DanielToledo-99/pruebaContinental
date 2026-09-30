@@ -15,8 +15,9 @@ Desafío Full Stack implementado como un monolito modular.
 6. Recarga la página o introduce el `session_id` para recuperar la conversación.
 
 La aplicación arranca sin clave de IA. Para procesar archivos y responder realmente
-necesita `OPENAI_API_KEY` válida y acceso a los modelos configurados. Las pruebas usan
-fakes o transporte HTTP simulado y **no consumen OpenAI**.
+necesita `OPENAI_API_KEY` válida y acceso a los modelos configurados, o bien
+`LLM_PROVIDER=ollama` con Ollama local (ver [Modo local con Ollama](#modo-local-con-ollama)).
+Las pruebas usan fakes o transporte HTTP simulado y **no consumen OpenAI**.
 
 ## Arquitectura
 
@@ -28,7 +29,7 @@ flowchart LR
     UC --> P[Puertos: Repository / UnitOfWork / LLM / Embeddings / VectorStore]
     I[Infraestructura: SQLAlchemy / pgvector / OpenAI / pypdf] -. implementa .-> P
     I --> DB[(PostgreSQL + pgvector)]
-    I --> OA[OpenAI]
+    I --> OA[OpenAI u Ollama]
 ```
 
 Las dependencias apuntan hacia el dominio y la aplicación. Los casos de uso no
@@ -45,7 +46,7 @@ backend/
       repositories/         # sesiones, documentos e historial
       vector_store/         # búsqueda coseno con pgvector
       document_processing/  # parsers PDF y TXT
-      llm/                  # adaptadores OpenAI y prompt
+      llm/                  # adaptadores OpenAI/Ollama y prompt
     api/                    # rutas, esquemas, DI, middleware y errores
     core/config.py          # Pydantic Settings
     main.py                 # composition root y lifespan
@@ -118,6 +119,9 @@ introduzcas la clave en el frontend. `.gitignore` excluye `.env` y sus variantes
 | `OPENAI_API_KEY` | Vacía en el ejemplo; obligatoria para la IA real |
 | `OPENAI_MODEL` | `gpt-4o-mini`, configurable |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small`, configurable |
+| `LLM_PROVIDER` | `openai` (defecto) u `ollama` |
+| `EMBEDDING_PROVIDER` | `openai` u `ollama`; si no se define, igual a `LLM_PROVIDER` |
+| `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_EMBEDDING_MODEL` | `http://host.docker.internal:11434`, `qwen2.5-coder:7b`, `bge-m3` |
 | `EMBEDDING_DIMENSIONS` | `1536`; cambiar modelo o dimensión requiere volver a cargar documentos |
 | `CORS_ORIGINS` | Orígenes separados por comas; localhost:3000 y localhost:5173 |
 | `VITE_API_BASE_URL` | `/api`; se aplica al construir el frontend |
@@ -159,6 +163,25 @@ docker compose down
 
 `down` conserva los datos. Si editas `.env`, aplica el cambio con
 `docker compose up -d --build`; un simple `restart` no recarga variables.
+
+## Modo local con Ollama
+
+Permite usar la aplicación sin clave de OpenAI: generación y embeddings corren en
+Ollama (versión 0.5 o superior, necesaria para la salida con JSON schema).
+
+```bash
+ollama pull qwen2.5-coder:7b   # o el modelo de chat que prefieras
+ollama pull bge-m3             # embeddings multilingües
+```
+
+En `.env`: `LLM_PROVIDER=ollama` y, en CPU, `AI_TIMEOUT_SECONDS=120`. Compose
+mapea `host.docker.internal` al host también en Linux; ahí Ollama debe escuchar en
+todas las interfaces (`OLLAMA_HOST=0.0.0.0 ollama serve`). Sin Docker, usa
+`OLLAMA_BASE_URL=http://localhost:11434`.
+
+Cambiar de proveedor de embeddings cambia el espacio vectorial: los documentos
+cargados con el anterior devuelven 409 y hay que subirlos de nuevo. El umbral
+`RETRIEVAL_MIN_SCORE` depende del modelo y conviene recalibrarlo.
 
 ## Ejecutar sin Docker
 
@@ -341,7 +364,8 @@ del LLM. Formula preguntas completas en vez de referencias como «¿y él?».
   datos no confiables, no instrucciones.
 - Si no hay contexto relevante, no se llama al LLM: se devuelve la frase de ausencia.
 - Salida estructurada con `supported`, `answer` y citas de fragmentos.
-- Se comprueba que los números de fragmento existan y las citas aparezcan en ellos.
+- Se comprueba que los números de fragmento existan y las citas aparezcan en ellos
+  (sin distinguir mayúsculas, espacios, comillas tipográficas ni puntuación final).
 - Una respuesta sin respaldo declarado o con citas inválidas se convierte en la
   frase de ausencia. Las fuentes se guardan con el mensaje para recuperarlas después.
 
@@ -370,6 +394,8 @@ Consulta [DECISION_LOG.md](DECISION_LOG.md) para las alternativas, motivos y cos
 de cada elección. [La guía de entrevista](docs/INTERVIEW_GUIDE.md) incluye preguntas
 y respuestas, un recorrido del código y una demostración de cinco minutos.
 El detalle de las verificaciones ejecutadas está en [VERIFICATION.md](docs/VERIFICATION.md).
+La [auditoría técnica](docs/AUDITORIA.md) resume bugs corregidos, riesgos pendientes
+y una hoja de ruta de escalado.
 
 ## Seguridad y observabilidad
 
@@ -380,7 +406,8 @@ La extracción bloqueante se lleva a un hilo. El cuerpo HTTP completo tiene lím
 antes del parser multipart, incluso si llega por partes sin Content-Length.
 
 Los logs registran eventos, identificadores y duración del procesamiento, sin
-preguntas, respuestas, fragmentos, claves ni cadenas de excepción del proveedor.
+preguntas, respuestas, fragmentos, claves ni cadenas de excepción: los errores
+inesperados se registran con tipo y trazas de código, y SQLAlchemy oculta parámetros.
 `store=False` se envía en Responses API; esto no sustituye las políticas de retención
 del proveedor. El texto de los fragmentos se envía a OpenAI para embeddings y RAG.
 
@@ -390,8 +417,9 @@ limitan a localhost y la aplicación no se presenta como servicio multiusuario s
 
 ## Limitaciones
 
-- Requiere una clave con saldo/permisos para probar OpenAI realmente.
-- PDF escaneado sin OCR, PDF cifrado y DOCX no están soportados.
+- Requiere una clave con saldo/permisos para probar OpenAI realmente, o Ollama local.
+- PDF escaneado sin OCR, PDF que exige contraseña para abrirse y DOCX no están
+  soportados. Los PDF con solo contraseña de propietario (restricciones) sí.
 - Procesamiento síncrono, máximo 10 MB, 200 páginas y 200 000 caracteres por defecto.
 - Si el proceso muere durante una carga, puede quedar metadata `processing`; vuelve
   a subir el archivo. No hay worker de recuperación ni reintentos de cargas.

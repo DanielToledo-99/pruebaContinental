@@ -7,6 +7,8 @@ from app.application.grounding import NOT_FOUND
 from app.core.config import Settings
 from app.domain.entities import GroundedAnswer
 from app.domain.exceptions import AIProviderError
+from app.infrastructure.llm.ollama_provider import OllamaLLMProvider
+from app.infrastructure.llm.openai_provider import OpenAILLMProvider
 from app.main import create_app
 from tests.unit.test_documents import make_pdf
 
@@ -87,6 +89,39 @@ def test_consistent_errors(client):
     )
     assert invalid.status_code == 415
     assert set(invalid.json()) == {"error"}
+
+
+def test_unexpected_errors_hide_details_and_keep_cors(setup_services, caplog):
+    services, _, _ = setup_services
+    secret = "texto " + "confidencial"
+
+    async def fail():
+        raise RuntimeError(secret)
+
+    services.create_session.execute = fail
+    with TestClient(create_app(Settings(_env_file=None), services)) as client:
+        response = client.post("/sessions", headers={"Origin": "http://localhost:3000"})
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert "RuntimeError" in caplog.text
+    assert secret not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "llm,embeddings,space,llm_type",
+    [
+        ("openai", None, "openai:text-embedding-3-small:1536", OpenAILLMProvider),
+        ("ollama", None, "ollama:bge-m3", OllamaLLMProvider),
+        ("ollama", "openai", "openai:text-embedding-3-small:1536", OllamaLLMProvider),
+    ],
+)
+def test_ai_providers_follow_settings(llm, embeddings, space, llm_type):
+    settings = Settings(_env_file=None, llm_provider=llm, embedding_provider=embeddings)
+    with TestClient(create_app(settings)) as client:
+        services = client.app.state.services
+        assert services.upload.embeddings.space == space
+        assert isinstance(services.ask.llm, llm_type)
 
 
 def test_swagger_health_and_cors(client):

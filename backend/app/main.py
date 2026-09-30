@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.api.dependencies import Services
 from app.api.exception_handlers import install_exception_handlers
-from app.api.middleware import RequestSizeLimit
+from app.api.middleware import RequestSizeLimit, UnhandledErrors
 from app.api.routes import router
 from app.application.use_cases import (
     AskQuestion,
@@ -20,11 +20,16 @@ from app.application.use_cases import (
 from app.core.config import Settings, get_settings
 from app.infrastructure.database.uow import SQLAlchemyUnitOfWork
 from app.infrastructure.document_processing.parsers import FileDocumentProcessor
-from app.infrastructure.llm.ollama_provider import OllamaLLMProvider
+from app.infrastructure.llm.ollama_provider import (
+    OllamaEmbeddingProvider,
+    OllamaLLMProvider,
+)
 from app.infrastructure.llm.openai_provider import (
     OpenAIEmbeddingProvider,
     OpenAILLMProvider,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(
@@ -42,7 +47,10 @@ def create_app(
             app.state.services = services
             yield
             return
-        engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+        # hide_parameters keeps document text out of SQL error messages.
+        engine = create_async_engine(
+            settings.database_url, pool_pre_ping=True, hide_parameters=True
+        )
         factory = async_sessionmaker(engine, expire_on_commit=False)
         app.state.engine = engine
         key = settings.openai_api_key.get_secret_value()
@@ -51,20 +59,37 @@ def create_app(
             if key
             else None
         )
-        embeddings = OpenAIEmbeddingProvider(
-            client, settings.openai_embedding_model, settings.embedding_dimensions
-        )
+        providers = {settings.llm_provider, settings.embedding_backend}
+        if "openai" in providers and client is None:
+            logger.warning(
+                "openai_api_key_missing llm=%s embeddings=%s: uploads or questions "
+                "will fail until OPENAI_API_KEY is set or LLM_PROVIDER=ollama",
+                settings.llm_provider,
+                settings.embedding_backend,
+            )
         ollama_client = (
             httpx.AsyncClient(
                 base_url=settings.ollama_base_url, timeout=settings.ai_timeout_seconds
             )
-            if settings.llm_provider == "ollama"
+            if "ollama" in providers
             else None
+        )
+        embeddings = (
+            OllamaEmbeddingProvider(ollama_client, settings.ollama_embedding_model)
+            if ollama_client is not None and settings.embedding_backend == "ollama"
+            else OpenAIEmbeddingProvider(
+                client, settings.openai_embedding_model, settings.embedding_dimensions
+            )
         )
         llm_provider = (
             OllamaLLMProvider(ollama_client, settings.ollama_model)
-            if ollama_client is not None
+            if ollama_client is not None and settings.llm_provider == "ollama"
             else OpenAILLMProvider(client, settings.openai_model)
+        )
+        logger.info(
+            "ai_providers llm=%s embeddings=%s",
+            settings.llm_provider,
+            embeddings.space,
         )
 
         def uow() -> SQLAlchemyUnitOfWork:
@@ -103,6 +128,8 @@ def create_app(
 
     app = FastAPI(title="Document AI Assistant", version="1.0.0", lifespan=lifespan)
     app.state.settings = settings
+    # Added first so it sits innermost: its 500 responses still get CORS headers.
+    app.add_middleware(UnhandledErrors)
     app.add_middleware(
         RequestSizeLimit, max_bytes=settings.max_upload_mb * 1024 * 1024 + 65536
     )

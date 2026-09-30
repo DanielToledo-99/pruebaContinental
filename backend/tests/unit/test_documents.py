@@ -1,7 +1,7 @@
 from io import BytesIO
 
 import pytest
-from pypdf import PdfWriter
+from pypdf import PdfReader, PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from app.application.chunking import split_text
@@ -60,6 +60,24 @@ def test_size_and_filename():
 async def test_parse_pdf():
     result = await FileDocumentProcessor().extract("doc.pdf", make_pdf())
     assert "reduce el consumo" in result
+
+
+def encrypt_pdf(content: bytes, user_password: str) -> bytes:
+    writer = PdfWriter(clone_from=PdfReader(BytesIO(content)))
+    writer.encrypt(
+        user_password=user_password, owner_password="owner", algorithm="AES-128"
+    )
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+async def test_pdf_with_only_owner_password_is_readable():
+    processor = FileDocumentProcessor()
+    result = await processor.extract("doc.pdf", encrypt_pdf(make_pdf(), ""))
+    assert "reduce el consumo" in result
+    with pytest.raises(InvalidDocument, match="contraseña"):
+        await processor.extract("doc.pdf", encrypt_pdf(make_pdf(), "secreta"))
 
 
 async def test_empty_pdf_and_binary_text():

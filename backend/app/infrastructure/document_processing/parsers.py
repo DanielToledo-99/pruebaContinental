@@ -35,7 +35,9 @@ class PDFParser:
     def parse(self, content: bytes, max_chars: int) -> str:
         try:
             reader = PdfReader(BytesIO(content))
-            if reader.is_encrypted:
+            # Many PDFs only carry an owner password (print/copy restrictions)
+            # and open without one; only a required user password is rejected.
+            if reader.is_encrypted and not reader.decrypt(""):
                 raise InvalidDocument("No se admiten PDF protegidos con contraseña.")
             if len(reader.pages) > self.max_pages:
                 raise DocumentTooLarge()

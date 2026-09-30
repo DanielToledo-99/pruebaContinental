@@ -22,6 +22,9 @@ services:
       target: runtime
     env_file:
       - .env
+    # Linux needs this mapping to reach Ollama on the host (Docker Desktop has it).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

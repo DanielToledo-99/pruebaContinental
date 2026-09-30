@@ -12,8 +12,11 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://postgres:postgres@localhost:5432/document_ai"
     )
     llm_provider: Literal["openai", "ollama"] = "openai"
+    # None keeps embeddings on the same provider as the LLM.
+    embedding_provider: Literal["openai", "ollama"] | None = None
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5-coder:7b"
+    ollama_embedding_model: str = "bge-m3"
     openai_api_key: SecretStr = SecretStr("")
     openai_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"
@@ -33,6 +36,10 @@ class Settings(BaseSettings):
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("CHUNK_OVERLAP must be smaller than CHUNK_SIZE")
         return self
+
+    @property
+    def embedding_backend(self) -> Literal["openai", "ollama"]:
+        return self.embedding_provider or self.llm_provider
 
     @property
     def allowed_origins(self) -> list[str]:

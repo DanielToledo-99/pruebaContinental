@@ -49,12 +49,4 @@ def install_exception_handlers(app: FastAPI) -> None:
     async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
         return error_response(exc.status_code, "HTTP_ERROR", str(exc.detail))
 
-    @app.exception_handler(Exception)
-    async def unexpected_error(request: Request, exc: Exception) -> JSONResponse:
-        # Avoid exception strings: provider/SQL exceptions can contain document text.
-        logger.error(
-            "unhandled_error type=%s path=%s", type(exc).__name__, request.url.path
-        )
-        return error_response(
-            500, "INTERNAL_ERROR", "Ocurrió un error interno. Inténtalo nuevamente."
-        )
+    # Unexpected exceptions are handled by app.api.middleware.UnhandledErrors.

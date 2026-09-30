@@ -66,15 +66,11 @@ test("upload, ask, sources, refusal and persistent history", async ({
   await expect(
     page.getByRole("button", { name: "Enviar pregunta" }),
   ).toBeDisabled();
-  await page
-    .getByLabel("Seleccionar documento")
-    .setInputFiles({
-      name: "proyecto.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from(
-        "El objetivo es reducir el consumo de agua en un 20%.",
-      ),
-    });
+  await page.getByLabel("Seleccionar documento").setInputFiles({
+    name: "proyecto.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("El objetivo es reducir el consumo de agua en un 20%."),
+  });
   await page.getByRole("button", { name: "Subir documento" }).click();
   await expect(
     page.getByText("Documento procesado correctamente."),
@@ -150,13 +146,11 @@ test("failed upload shows an error and preserves the selected file", async ({
   );
   await page.goto("/");
   await expect(page.getByText("Sesión guardada")).toBeVisible();
-  await page
-    .getByLabel("Seleccionar documento")
-    .setInputFiles({
-      name: "doc.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from("contenido"),
-    });
+  await page.getByLabel("Seleccionar documento").setInputFiles({
+    name: "doc.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("contenido"),
+  });
   await page.getByRole("button", { name: "Subir documento" }).click();
   await expect(page.getByRole("alert")).toContainText("proveedor de IA");
   await expect(

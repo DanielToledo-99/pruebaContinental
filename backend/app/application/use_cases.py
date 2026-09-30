@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import replace
@@ -103,7 +104,8 @@ class UploadDocument:
                 await work.vectors.add(chunks)
                 await work.repository.save_document(document)
                 await work.commit()
-        except Exception:
+        except (Exception, asyncio.CancelledError):
+            # CancelledError (shutdown, timeout) would otherwise leave "processing".
             async with self.uow() as work:
                 await work.repository.save_document(replace(document, status="failed"))
                 await work.commit()
