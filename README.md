@@ -349,12 +349,13 @@ sesión sin documentos procesados o espacio de embeddings distinto. 413: tamaño
 ## Flujo RAG
 
 ```text
-PDF/TXT → validación → extracción → normalización → chunks de 800 caracteres
+PDF/TXT → validación → extracción (conserva saltos de línea) → chunks de hasta 800
+caracteres cortados en párrafo, línea u oración
 → solapamiento de 100 → embeddings por lotes → PostgreSQL/pgvector
 
 Pregunta → embedding → similitud coseno filtrada por document_id
 → top 4 con score ≥ 0.25 → prompt + contexto → respuesta estructurada
-→ verificar citas textuales → guardar turno atómicamente → mostrar fuentes
+→ verificar cada cita en su fragmento → guardar turno atómicamente → mostrar citas
 ```
 
 El score es similitud coseno, **no una probabilidad ni una garantía de veracidad**.
@@ -369,11 +370,19 @@ del LLM. Formula preguntas completas en vez de referencias como «¿y él?».
 - Instrucción explícita de no usar conocimiento externo y tratar documentos como
   datos no confiables, no instrucciones.
 - Si no hay contexto relevante, no se llama al LLM: se devuelve la frase de ausencia.
-- Salida estructurada con `supported`, `answer` y citas de fragmentos.
-- Se comprueba que los números de fragmento existan y las citas aparezcan en ellos
-  (sin distinguir mayúsculas, espacios, comillas tipográficas ni puntuación final).
-- Una respuesta sin respaldo declarado o con citas inválidas se convierte en la
-  frase de ausencia. Las fuentes se guardan con el mensaje para recuperarlas después.
+- Salida estructurada con `supported`, `answer` y una cita por cada dato afirmado.
+- Se comprueba que los números de fragmento existan y cada cita aparezca en su
+  fragmento (sin distinguir mayúsculas, espacios, comillas tipográficas ni puntuación
+  final; las partes omitidas con «…» deben aparecer en orden).
+- Se muestran **todas** las citas, sin duplicados, con la redacción exacta del
+  documento (no la del modelo), agrupadas por fragmento. «Ver el fragmento completo»
+  muestra el fragmento con las citas resaltadas.
+- Una respuesta sin respaldo declarado o con alguna cita inválida se convierte en la
+  frase de ausencia. Las citas se guardan con el mensaje para recuperarlas después.
+
+Un documento corto como `samples/proyecto_agua.txt` (646 caracteres) cabe en un
+solo fragmento, así que todas sus citas indican «FRAGMENTO 1»: lo que cambia entre
+respuestas son las frases citadas.
 
 Una cita real puede no justificar toda una conclusión. Estas medidas reducen el
 riesgo, pero no prueban entailment semántico ni eliminan toda prompt injection.
@@ -384,7 +393,9 @@ La interfaz invita a revisar las fuentes y el límite se explica en el ADR-010.
 1. Configura la clave, levanta Compose y abre el frontend.
 2. Sube `samples/proyecto_agua.txt`: debe aparecer «Documento procesado correctamente».
 3. Pregunta «¿Cuál es el objetivo principal?»; debe mencionar reducir agua en 20%.
-4. Expande las fuentes: la cita debe existir literalmente en el archivo.
+4. Expande las citas: cada una debe existir literalmente en el archivo y aparecer
+   resaltada en «Ver el fragmento completo». Pide «dame un resumen»: debe haber una
+   cita por cada dato del resumen.
 5. Pregunta «¿Cuál es el presupuesto?»; debe responder 15 000 soles.
 6. Pregunta «¿Quién ganó el Mundial de fútbol de 2018?»; debe devolver la frase de ausencia.
 7. Copia el identificador de sesión, recarga y confirma que los mensajes y fuentes siguen allí.

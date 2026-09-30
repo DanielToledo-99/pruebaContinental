@@ -849,21 +849,53 @@ a {
 .sources summary > svg:last-child {
   margin-left: auto;
 }
+.sources summary > span {
+  overflow-wrap: anywhere;
+}
+.source {
+  margin-top: 12px;
+}
+.source-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.7px;
+  color: #6f7f63;
+  margin-bottom: 4px;
+}
 .sources blockquote {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #3f5238;
+  margin: 6px 0;
+  border-left: 2px solid #9fbd88;
+  padding-left: 12px;
+  overflow-wrap: anywhere;
+}
+.source-context {
+  margin-top: 8px;
+}
+.sources .source-context summary {
+  font-size: 10px;
+  color: #5f7550;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.source-context p {
   font-size: 11px;
   line-height: 1.8;
-  color: #77886a;
-  margin: 12px 0 3px;
-  border-left: 2px solid #cddbbc;
-  padding-left: 12px;
-}
-.sources blockquote > span {
-  display: block;
-  font-size: 8px;
-  letter-spacing: 0.7px;
-  color: #9aa98b;
-  margin-bottom: 4px;
+  color: #55664c;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e3e9db;
+  border-radius: 5px;
+}
+.source-context mark {
+  background: #e4efc9;
+  color: #2f4128;
+  border-radius: 2px;
 }
 .thinking {
   display: flex;

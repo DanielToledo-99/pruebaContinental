@@ -133,8 +133,12 @@ del proceso puede dejar metadata pendiente; se documenta sin introducir workers.
 ## ADR-010 Respaldo de respuestas y prompt injection
 
 **Decisión:** prompt centralizado, contexto considerado no confiable, salida
-estructurada con `supported` y citas; validar que cada cita pertenece al fragmento.
-Sin contexto o con evidencia inválida, usar exactamente la frase de ausencia.
+estructurada con `supported` y una cita por dato; validar que cada cita pertenece al
+fragmento. Sin contexto o con evidencia inválida, usar exactamente la frase de ausencia.
+La interfaz muestra todas las citas con el texto exacto del documento (localizado al
+validar, tolerando mayúsculas, espacios y comillas tipográficas) y el fragmento con
+las citas resaltadas. Mostrar la redacción del modelo permitiría que una cita
+«verificada» no coincidiera con lo que dice el archivo.
 
 **Motivo:** un prompt solo no permite auditar fuentes. Las citas comprobadas impiden
 referencias a fragmentos inexistentes, pero **no garantizan que toda afirmación sea

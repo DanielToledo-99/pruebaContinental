@@ -137,9 +137,9 @@ async def test_http_roundtrip_persists_across_app_restart(uow_factory):
                 },
             )
             assert response.status_code == 200
-            assert (
-                response.json()["sources"][0]["quote"] == "El objetivo es ahorrar agua."
-            )
+            assert response.json()["sources"][0]["quotes"] == [
+                "El objetivo es ahorrar agua."
+            ]
     restarted = create_app(Settings(_env_file=None), services)
     async with restarted.router.lifespan_context(restarted):
         async with httpx.AsyncClient(

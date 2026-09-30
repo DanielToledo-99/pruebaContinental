@@ -39,7 +39,8 @@ class Source:
     chunk: int
     text: str
     score: float
-    quote: str = ""
+    # Exact excerpts of `text` that support the answer, in citation order.
+    quotes: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

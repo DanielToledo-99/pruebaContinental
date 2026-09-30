@@ -47,7 +47,7 @@ def test_complete_flow_and_recover_history(client, filename, mime, content):
     )
     assert response.status_code == 200
     assert "agua" in response.json()["answer"]
-    assert response.json()["sources"][0]["quote"]
+    assert response.json()["sources"][0]["quotes"]
     history = client.get(f"/history/{session}").json()
     assert [message["role"] for message in history["messages"]] == ["user", "assistant"]
     assert history["documents"][0]["document_id"] == document["document_id"]

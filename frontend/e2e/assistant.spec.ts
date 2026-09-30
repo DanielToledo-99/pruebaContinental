@@ -35,7 +35,14 @@ test("upload, ask, sources, refusal and persistent history", async ({
         : "El objetivo es reducir el consumo de agua en un 20%.";
       const sources = unknown
         ? []
-        : [{ chunk: 1, text: answer, quote: answer, score: 0.9 }];
+        : [
+            {
+              chunk: 1,
+              text: `Proyecto Agua\n\n${answer}\nLa responsable es Ana Torres.`,
+              quotes: [answer, "La responsable es Ana Torres."],
+              score: 0.9,
+            },
+          ];
       const pair: Message[] = [
         {
           id: `user-${messages.length}`,
@@ -80,8 +87,16 @@ test("upload, ask, sources, refusal and persistent history", async ({
     .fill("¿Cuál es el objetivo?");
   await page.getByRole("button", { name: "Enviar pregunta" }).click();
   await expect(page.locator(".assistant .message-body > p")).toHaveText(/20%/);
-  await page.getByText("1 fuente del documento").click();
-  await expect(page.locator("blockquote")).toContainText("20%");
+  await page.getByText("2 citas · proyecto.txt").click();
+  await expect(page.locator("blockquote")).toHaveText([
+    "El objetivo es reducir el consumo de agua en un 20%.",
+    "La responsable es Ana Torres.",
+  ]);
+  await page.getByText("Ver el fragmento completo").click();
+  await expect(page.locator(".source-context mark")).toHaveText([
+    "El objetivo es reducir el consumo de agua en un 20%.",
+    "La responsable es Ana Torres.",
+  ]);
   await page.reload();
   await expect(page.locator(".message")).toHaveCount(2);
   await expect(page.getByLabel("Pregunta sobre el documento")).toBeEnabled();

@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { api, ApiError } from "./api";
-import type { DocumentInfo, History, Message } from "./api";
+import type { DocumentInfo, History, Message, Source } from "./api";
 
 const SESSION_KEY = "document-ai-session";
 const DOCUMENT_KEY = "document-ai-document";
@@ -573,26 +573,14 @@ export default function App() {
                   </div>
                   <p>{message.content}</p>
                   {message.sources.length > 0 && (
-                    <details className="sources">
-                      <summary>
-                        <BookOpen size={14} /> {message.sources.length}{" "}
-                        {message.sources.length === 1
-                          ? "fuente del documento"
-                          : "fuentes del documento"}{" "}
-                        <ChevronDown size={14} />
-                      </summary>
-                      {message.sources.map((source) => (
-                        <blockquote key={source.chunk}>
-                          <span>
-                            FRAGMENTO {source.chunk} ·{" "}
-                            {documents.find(
-                              (doc) => doc.document_id === message.document_id,
-                            )?.filename || "Documento"}
-                          </span>
-                          {source.quote || source.text}
-                        </blockquote>
-                      ))}
-                    </details>
+                    <Sources
+                      sources={message.sources}
+                      filename={
+                        documents.find(
+                          (doc) => doc.document_id === message.document_id,
+                        )?.filename || "Documento"
+                      }
+                    />
                   )}
                 </div>
               </article>
@@ -684,6 +672,62 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+function Sources({
+  sources,
+  filename,
+}: {
+  sources: Source[];
+  filename: string;
+}) {
+  const count = sources.reduce(
+    (total, source) => total + Math.max(source.quotes.length, 1),
+    0,
+  );
+  return (
+    <details className="sources">
+      <summary>
+        <BookOpen size={14} />
+        <span>
+          {count} {count === 1 ? "cita" : "citas"} · {filename}
+        </span>
+        <ChevronDown size={14} />
+      </summary>
+      {sources.map((source) => (
+        <div className="source" key={source.chunk}>
+          <span className="source-label">FRAGMENTO {source.chunk}</span>
+          {source.quotes.map((quote) => (
+            <blockquote key={quote}>{quote}</blockquote>
+          ))}
+          <details className="source-context">
+            <summary>Ver el fragmento completo</summary>
+            <p>{highlight(source.text, source.quotes)}</p>
+          </details>
+        </div>
+      ))}
+    </details>
+  );
+}
+
+// Marks each quote inside its fragment; quotes are exact excerpts whose
+// whitespace may differ from the fragment, and " […] " joins elided parts.
+function highlight(text: string, quotes: string[]) {
+  const pattern = quotes
+    .flatMap((quote) => quote.split(" […] "))
+    .map((part) =>
+      part
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join("\\s+"),
+    )
+    .filter(Boolean)
+    .join("|");
+  if (!pattern) return text;
+  return text
+    .split(new RegExp(`(${pattern})`, "i"))
+    .map((part, index) => (index % 2 ? <mark key={index}>{part}</mark> : part));
 }
 
 function errorText(error: unknown) {

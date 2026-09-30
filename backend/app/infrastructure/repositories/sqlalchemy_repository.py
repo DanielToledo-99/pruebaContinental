@@ -27,6 +27,17 @@ def to_document(row: DocumentRow) -> Document:
 type DocumentStatus = Literal["processing", "processed", "failed"]
 
 
+def to_source(data: dict) -> Source:
+    # Messages saved before multi-quote sources stored a single "quote".
+    legacy = [data["quote"]] if data.get("quote") else []
+    return Source(
+        chunk=data["chunk"],
+        text=data["text"],
+        score=data["score"],
+        quotes=data.get("quotes", legacy),
+    )
+
+
 def to_message(row: MessageRow) -> Message:
     return Message(
         id=row.id,
@@ -36,7 +47,7 @@ def to_message(row: MessageRow) -> Message:
         content=row.content,
         sequence=row.sequence,
         created_at=row.created_at,
-        sources=[Source(**source) for source in row.sources],
+        sources=[to_source(source) for source in row.sources],
     )
 
 

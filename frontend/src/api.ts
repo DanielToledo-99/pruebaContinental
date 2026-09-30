@@ -1,7 +1,7 @@
 export type Source = {
   chunk: number;
   text: string;
-  quote: string;
+  quotes: string[];
   score: number;
 };
 export type Message = {

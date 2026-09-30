@@ -93,7 +93,9 @@ class FileDocumentProcessor:
     async def extract(self, filename: str, content: bytes) -> str:
         parser = self.parsers[PurePosixPath(filename).suffix.lower()]
         text = await asyncio.to_thread(parser.parse, content, self.max_chars)
-        text = re.sub(r"\s+", " ", text.replace("\x00", " ")).strip()
+        # Keep line and paragraph breaks so titles do not merge into sentences.
+        text = re.sub(r"[^\S\n]+", " ", text.replace("\x00", " "))
+        text = re.sub(r"\n{3,}", "\n\n", re.sub(r" ?\n ?", "\n", text)).strip()
         if not text:
             raise InvalidDocument(
                 "No se encontró texto. Los PDF escaneados requieren OCR."

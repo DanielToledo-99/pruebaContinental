@@ -21,7 +21,7 @@ Se encontraron tres problemas que impedían que funcionara o que se integrara:
 3. **Ollama inaccesible desde Docker en Linux**: `host.docker.internal` no existe
    allí sin `extra_hosts`.
 
-Los tres están corregidos en esta rama, junto con otros cinco bugs. Quedan mejoras
+Los tres están corregidos, junto con otros ocho bugs. Quedan mejoras
 de escalado, UX y calidad de RAG, priorizadas al final.
 
 ## Cumplimiento del desafío
@@ -46,7 +46,7 @@ Contraste con `Desafio_Tecnico_Musache_Fullstack_CIE_LAB.docx`.
 | Lógica separada de infraestructura y proveedor de IA | Cumple | Puertos `Protocol`; los casos de uso no importan FastAPI, SQLAlchemy ni SDKs. |
 | Manejo de errores con excepciones | Cumple | Jerarquía `ApplicationError` y manejadores centralizados. |
 | Historial persistido en base de datos | Cumple | PostgreSQL con migraciones Alembic. |
-| Pruebas unitarias y de integración (pytest) | Cumple | 60 tests, incluida PostgreSQL real; Playwright en el frontend. |
+| Pruebas unitarias y de integración (pytest) | Cumple | 71 tests, incluida PostgreSQL real; Playwright en el frontend. |
 | Ruff/Flake8, Black e isort | Cumple | En CI; Black fallaba en `main` y está corregido. |
 | Sin secretos en el código | Cumple | Variables de entorno y `SecretStr`; revisado todo el historial de Git: solo aparece `test-key` en tests. |
 | Dockerfile y docker-compose.yml | Cumple | Backend, frontend (Nginx) y PostgreSQL con healthchecks. No se pudo ejecutar Compose en este entorno. |
@@ -60,8 +60,8 @@ Contraste con `Desafio_Tecnico_Musache_Fullstack_CIE_LAB.docx`.
 
 | Verificación | Original | Tras los cambios |
 | --- | --- | --- |
-| pytest con fakes | 40 passed, 4 skipped | 56 passed, 4 skipped |
-| pytest con PostgreSQL 16 + pgvector real | 44 passed | **60 passed** |
+| pytest con fakes | 40 passed, 4 skipped | 67 passed, 4 skipped |
+| pytest con PostgreSQL 16 + pgvector real | 44 passed | **71 passed** |
 | Ruff / isort / `alembic check` | Correcto | Correcto |
 | mypy sobre `app/` | 7 errores (no estaba configurado) | Correcto, añadido a CI |
 | Black | **1 archivo con errores** | Correcto |
@@ -107,6 +107,9 @@ avisa si hace falta `OPENAI_API_KEY` y no está definida.
 | 6 | Media | Una carga cancelada (apagado, timeout) dejaba el documento en `processing` para siempre: `CancelledError` no hereda de `Exception`. | Se captura también `CancelledError`, se marca `failed` y se re-lanza. |
 | 7 | Media | La verificación de citas era literal: una cita con mayúscula inicial, comillas «» o punto final añadido se descartaba y la respuesta correcta se convertía en «No encuentro...». | Comparación normalizada (NFKC, mayúsculas, espacios, comillas y guiones tipográficos, puntuación en los extremos). Sigue exigiendo que todas las citas existan en su fragmento. |
 | 8 | Baja | Ollama recibía `format: "json"` sin esquema (los modelos pequeños se desvían) y un `message: null` producía 500 en vez de 502. | JSON schema en `format` y captura de `TypeError`. |
+| 9 | **Alta** | **Citas descartadas**: si el modelo citaba varias frases del mismo fragmento, solo se conservaba la primera. En un documento de un fragmento, un resumen con ocho datos mostraba una sola cita (el objetivo), así que parecía que la misma fuente se repetía en todas las respuestas y que el resumen no tenía respaldo. **No se detectó en la primera auditoría**: la revisión de `grounding.py` se centró en la comparación de texto y no en qué citas llegaban a la interfaz; se encontró al probar la aplicación con un modelo real. | Se guardan todas las citas, sin duplicados y en orden (`Source.quotes`). Los mensajes antiguos con una sola `quote` se siguen leyendo. |
+| 10 | Media | Con la comparación flexible de la primera corrección (#7), la interfaz mostraba la redacción del modelo (comillas, mayúsculas), que podía no coincidir con el documento. | Cada cita se localiza en el fragmento y se muestra con el texto exacto del documento; se admiten omisiones con «…» en orden. |
+| 11 | Media | El prompt pedía «al menos una cita», así que un resumen podía llegar con una sola. La extracción unía todas las líneas: el título se pegaba a la primera frase («Proyecto Agua Clara El objetivo…») y los fragmentos se cortaban a mitad de oración. | Una cita por dato en el prompt; la extracción conserva saltos de línea y los fragmentos se cortan en párrafo, línea u oración. La interfaz cuenta citas, las agrupa por fragmento y permite ver el fragmento con las citas resaltadas. |
 
 ## Bugs y riesgos pendientes
 
@@ -118,9 +121,11 @@ avisa si hace falta `OPENAI_API_KEY` y no está definida.
 | Media | `GET /history` devuelve todo el historial sin paginar, y cada respuesta guarda el texto completo de hasta 4 fragmentos en `sources`. | Paginación por `sequence` y guardar solo índice + cita (el texto está en `document_chunks`). |
 | Media | Sin autenticación ni límite de peticiones: quien acceda al puerto puede consumir tokens sin control. Aceptable solo en localhost, como indica el README. | Identidad + propiedad de sesiones y `limit_req` en Nginx o límites por usuario. |
 | Baja | El chat mezcla preguntas de distintos documentos de la sesión; solo las fuentes indican el archivo. | Mostrar el documento en cada mensaje o filtrar por documento activo. |
-| Baja | La sugerencia «Resume los puntos más importantes» no encaja con RAG top-4 con umbral: puede dar un resumen parcial o la frase de ausencia. | Cambiar las sugerencias por preguntas puntuales o añadir un modo resumen. |
+| Media | Los resúmenes solo cubren los fragmentos recuperados (4 como máximo, unos 3200 caracteres). En documentos cortos es todo el texto; en uno largo, «dame un resumen» resume una parte sin avisarlo. La sugerencia «Resume los puntos más importantes» invita a ese caso. | Modo resumen que recorra todos los fragmentos (map-reduce) o aviso explícito de cobertura parcial. |
 | Baja | TXT solo UTF-8: los archivos ANSI/cp1252 de Windows se rechazan. | Intentar cp1252 como alternativa, manteniendo el control de caracteres binarios. |
 | Baja | Una cita de 1–2 caracteres («de») valida cualquier respuesta. | Longitud mínima de cita (p. ej. 3 palabras o 10 caracteres), calibrada con un corpus. |
+| Baja | Una sola cita inválida convierte toda la respuesta en la frase de ausencia. Al pedir una cita por dato, un resumen largo tiene más probabilidades de caer por una cita mal copiada. | Medir con un modelo real la tasa de rechazo; si es alta, descartar solo las citas inválidas y marcar la respuesta como parcialmente respaldada. |
+| Baja | Los documentos subidos antes de este cambio conservan fragmentos con las líneas unidas. | Volver a subirlos. |
 | Baja | El modelo Ollama por defecto, `qwen2.5-coder:7b`, está orientado a código. | Para preguntas en español, `qwen2.5:7b` o `llama3.1:8b`. |
 | Baja | CI: `playwright install --with-deps` tardó 11 minutos. | Cachear `~/.cache/ms-playwright` o usar la imagen oficial de Playwright. |
 
@@ -217,7 +222,9 @@ PostgreSQL de ejemplo son `postgres/postgres`.
 - `backend/app/infrastructure/document_processing/parsers.py`, `pyproject.toml`,
   `requirements.lock`: PDF con contraseña de propietario (`pypdf[crypto]`).
 - `backend/app/application/use_cases.py`: cargas canceladas quedan en `failed`.
-- `backend/app/application/grounding.py`: comparación normalizada de citas.
+- `backend/app/application/grounding.py`: todas las citas, con el texto exacto del
+  documento; `chunking.py` y `parsers.py`: fragmentos que respetan líneas y oraciones;
+  `prompts.py`: una cita por dato; `App.tsx`: citas agrupadas y fragmento resaltado.
 - `docker-compose.yml`, `.env.example`, `README.md`: modo local con Ollama.
 - `backend/app/application/use_cases.py`, `schemas.py`: `document_id` opcional en
   `POST /ask`; la respuesta indica el documento usado.

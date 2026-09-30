@@ -102,6 +102,19 @@ def test_chunks_preserve_text_and_have_overlap():
     assert reconstructed == text
 
 
+async def test_extraction_keeps_line_and_paragraph_breaks():
+    content = "Título\r\n\r\n\r\nPrimera  línea\t \ncontinúa.".encode()
+    text = await FileDocumentProcessor().extract("doc.txt", content)
+    assert text == "Título\n\nPrimera línea\ncontinúa."
+
+
+def test_chunks_prefer_paragraph_and_sentence_boundaries():
+    paragraph = ("Primera oración del párrafo. " * 20).strip()
+    assert split_text(f"{paragraph}\n\n{paragraph}", 800, 100)[0] == paragraph
+    sentences = ("Una oración corta y completa. " * 40).strip()
+    assert all(chunk.endswith(".") for chunk in split_text(sentences, 800, 100))
+
+
 @pytest.mark.parametrize("size,overlap", [(0, 0), (100, 100), (100, -1)])
 def test_invalid_chunk_parameters(size, overlap):
     with pytest.raises(ValueError):

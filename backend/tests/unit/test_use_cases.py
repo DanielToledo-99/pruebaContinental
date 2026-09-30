@@ -85,7 +85,7 @@ async def test_citation_matching_tolerates_case_and_typography(loaded):
     )
     result = await services.ask.execute(session.id, document.id, "Pregunta")
     assert result.answer == "Reducir el consumo de agua."
-    assert result.sources[0].quote == quote
+    assert result.sources[0].quotes == ["reducir el consumo de agua en un 20%."]
 
 
 async def test_document_not_found(loaded):

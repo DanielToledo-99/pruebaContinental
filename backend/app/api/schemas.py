@@ -38,7 +38,7 @@ class SourceResponse(ResponseModel):
     chunk: int
     text: str
     score: float
-    quote: str
+    quotes: list[str]
 
 
 class MessageResponse(ResponseModel):
