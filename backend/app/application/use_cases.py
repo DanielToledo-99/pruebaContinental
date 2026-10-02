@@ -113,7 +113,6 @@ class UploadDocument:
                 await work.repository.save_document(document)
                 await work.commit()
         except (Exception, asyncio.CancelledError):
-            # CancelledError (shutdown, timeout) would otherwise leave "processing".
             async with self.uow() as work:
                 await work.repository.save_document(replace(document, status="failed"))
                 await work.commit()
@@ -154,7 +153,6 @@ class AskQuestion:
             if not await work.repository.session_exists(session_id):
                 raise SessionNotFound()
             if document_id is None:
-                # Without an explicit document, answer from the latest processed one.
                 processed = [
                     document
                     for document in await work.repository.list_documents(session_id)

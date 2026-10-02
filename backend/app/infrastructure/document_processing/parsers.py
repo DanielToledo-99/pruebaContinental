@@ -19,8 +19,6 @@ from app.domain.exceptions import (
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 _MIME_TYPES = {".pdf": "application/pdf", ".txt": "text/plain", ".docx": DOCX_MIME}
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-# Deleted or moved-away text, formatting, and the legacy copy of drawings
-# (mc:Fallback duplicates text boxes) are not part of the reading text.
 _SKIPPED = {
     f"{_W}del",
     f"{_W}moveFrom",
@@ -52,8 +50,6 @@ class PDFParser:
     def parse(self, content: bytes, max_chars: int) -> str:
         try:
             reader = PdfReader(BytesIO(content))
-            # Many PDFs only carry an owner password (print/copy restrictions)
-            # and open without one; only a required user password is rejected.
             if reader.is_encrypted and not reader.decrypt(""):
                 raise InvalidDocument("No se admiten PDF protegidos con contraseña.")
             if len(reader.pages) > self.max_pages:
@@ -98,11 +94,6 @@ def _text_boxes(element: Any) -> Iterator[Any]:
 
 
 def _docx_lines(element: Any) -> Iterator[str]:
-    """Paragraphs and table rows in reading order.
-
-    Unlike python-docx's `paragraphs`, this includes tables, content controls,
-    tracked insertions and text boxes; horizontally merged cells appear once.
-    """
     for child in element:
         if child.tag in _SKIPPED:
             continue
@@ -127,8 +118,6 @@ class DocxParser:
 
     def parse(self, content: bytes, max_chars: int) -> str:
         try:
-            # A small archive can expand to gigabytes: check declared sizes first;
-            # zipfile never reads past them.
             with zipfile.ZipFile(BytesIO(content)) as archive:
                 unzipped = sum(item.file_size for item in archive.infolist())
             if unzipped > self.max_unzipped:
@@ -180,7 +169,6 @@ class FileDocumentProcessor:
         if extension == ".pdf" and not content.startswith(b"%PDF-"):
             raise InvalidDocument("El contenido del archivo no corresponde a un PDF.")
         if extension == ".docx" and not content.startswith(b"PK\x03\x04"):
-            # Password-protected Word files and legacy .doc use the OLE format.
             raise InvalidDocument(
                 "No se admiten documentos de Word protegidos con contraseña "
                 "ni en formato .doc."
@@ -193,7 +181,6 @@ class FileDocumentProcessor:
     async def extract(self, filename: str, content: bytes) -> str:
         parser = self.parsers[PurePosixPath(filename).suffix.lower()]
         text = await asyncio.to_thread(parser.parse, content, self.max_chars)
-        # Keep line and paragraph breaks so titles do not merge into sentences.
         text = re.sub(r"[^\S\n]+", " ", text.replace("\x00", " "))
         text = re.sub(r"\n{3,}", "\n\n", re.sub(r" ?\n ?", "\n", text)).strip()
         if not text:

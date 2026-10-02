@@ -47,7 +47,6 @@ def create_app(
             app.state.services = services
             yield
             return
-        # hide_parameters keeps document text out of SQL error messages.
         engine = create_async_engine(
             settings.database_url, pool_pre_ping=True, hide_parameters=True
         )
@@ -128,7 +127,6 @@ def create_app(
 
     app = FastAPI(title="Document AI Assistant", version="1.0.0", lifespan=lifespan)
     app.state.settings = settings
-    # Added first so it sits innermost: its 500 responses still get CORS headers.
     app.add_middleware(UnhandledErrors)
     app.add_middleware(
         RequestSizeLimit, max_bytes=settings.max_upload_mb * 1024 * 1024 + 65536

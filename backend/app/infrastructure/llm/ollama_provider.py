@@ -15,8 +15,6 @@ _JSON_INSTRUCTIONS = (
     '"citations": [{"chunk": integer, "quote": string}]}. '
     "No agregues texto fuera del JSON."
 )
-# Ollama >= 0.5 constrains generation to this schema. It has no length limits so
-# the grammar stays small; AnswerPayload still validates the final result.
 _ANSWER_SCHEMA = {
     "type": "object",
     "properties": {
@@ -103,7 +101,6 @@ class OllamaEmbeddingProvider:
 
     @property
     def space(self) -> str:
-        # The model fixes the dimension, so it identifies the vector space.
         return f"ollama:{self.model}"
 
     async def embed(self, texts: list[str]) -> list[list[float]]:

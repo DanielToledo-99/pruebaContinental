@@ -49,5 +49,3 @@ def install_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(HTTPException)
     async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
         return error_response(exc.status_code, "HTTP_ERROR", str(exc.detail))
-
-    # Unexpected exceptions are handled by app.api.middleware.UnhandledErrors.

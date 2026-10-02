@@ -1,5 +1,3 @@
-"""Initial persistent sessions, documents, messages and vectors."""
-
 import sqlalchemy as sa
 from alembic import op
 from pgvector.sqlalchemy import Vector

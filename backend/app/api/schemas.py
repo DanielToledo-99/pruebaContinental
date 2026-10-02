@@ -24,7 +24,6 @@ class DocumentResponse(ResponseModel):
 class AskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     session_id: UUID
-    # Optional: without it, the latest processed document of the session is used.
     document_id: UUID | None = None
     question: str = Field(min_length=1, max_length=2000)
 

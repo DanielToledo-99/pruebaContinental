@@ -710,8 +710,6 @@ function Sources({
   );
 }
 
-// Marks each quote inside its fragment; quotes are exact excerpts whose
-// whitespace may differ from the fragment, and " […] " joins elided parts.
 function highlight(text: string, quotes: string[]) {
   const pattern = quotes
     .flatMap((quote) => quote.split(" […] "))

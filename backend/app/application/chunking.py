@@ -1,4 +1,3 @@
-# Preferred cut points, best first; the offset keeps a sentence's period.
 _BOUNDARIES = (("\n\n", 0), ("\n", 0), (". ", 1), (" ", 0))
 
 

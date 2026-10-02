@@ -12,7 +12,6 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://postgres:postgres@localhost:5432/document_ai"
     )
     llm_provider: Literal["openai", "ollama"] = "openai"
-    # None keeps embeddings on the same provider as the LLM.
     embedding_provider: Literal["openai", "ollama"] | None = None
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5-coder:7b"

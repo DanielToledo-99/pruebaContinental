@@ -9,13 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class UnhandledErrors:
-    """Answer unexpected failures with the JSON contract, inside CORS.
-
-    Starlette's default 500 handler runs outside CORSMiddleware and re-raises, so
-    the server would log the exception message, which may contain document text.
-    Only the exception type and code frames are logged here.
-    """
-
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
@@ -49,8 +42,6 @@ class UnhandledErrors:
 
 
 class RequestSizeLimit:
-    """Bound the entire body before multipart parsing, including chunked uploads."""
-
     def __init__(self, app: ASGIApp, max_bytes: int) -> None:
         self.app = app
         self.max_bytes = max_bytes

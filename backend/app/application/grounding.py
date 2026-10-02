@@ -6,15 +6,12 @@ from app.domain.entities import GroundedAnswer, Source
 
 NOT_FOUND = "No encuentro esa información en el documento cargado."
 _TYPOGRAPHY = str.maketrans("“”„«»‘’‚–—", '"""""\'\'\'--')
-# Models often wrap exact excerpts in quotes or add a final period.
 _EDGES = " \"'.,;:!?¡¿"
-# After folding, "…" becomes "..."; models use it to elide part of a sentence.
 _ELLIPSIS = re.compile(r"\.{3,}")
 _GAP = " […] "
 
 
 def _fold(text: str) -> tuple[str, list[int]]:
-    """Fold case, width, typography and whitespace, keeping each char's position."""
     chars: list[str] = []
     positions: list[int] = []
     for index, char in enumerate(text):
@@ -34,10 +31,6 @@ def _fold(text: str) -> tuple[str, list[int]]:
 
 
 def locate_quote(quote: str, text: str) -> str | None:
-    """Return the document's own wording for a model quote, or None if absent.
-
-    Both strings must be NFC. Elided parts ("...") must appear in order.
-    """
     folded, positions = _fold(text)
     pieces: list[str] = []
     cursor = 0
@@ -84,7 +77,6 @@ def validate_answer(
         if excerpt not in found:
             found.append(excerpt)
     by_index = {source.chunk: source for source in context}
-    # Every quote is kept, in citation order, with the document's exact wording.
     return answer, [
         replace(by_index[chunk], text=texts[chunk], quotes=items)
         for chunk, items in quotes.items()

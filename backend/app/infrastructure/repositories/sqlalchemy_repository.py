@@ -28,7 +28,6 @@ type DocumentStatus = Literal["processing", "processed", "failed"]
 
 
 def to_source(data: dict) -> Source:
-    # Messages saved before multi-quote sources stored a single "quote".
     legacy = [data["quote"]] if data.get("quote") else []
     return Source(
         chunk=data["chunk"],
